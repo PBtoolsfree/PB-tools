@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Converter - PB Tools</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #2563EB;
+            --primary-dark: #1D4ED8;
+            --secondary-color: #1E293B;
+            --bg-color: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--secondary-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Simple Header for Context --- */
+        header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            text-align: center;
+        }
+        
+        .logo { font-weight: 700; font-size: 1.25rem; color: var(--primary-color); }
+        .back-link { font-size: 0.9rem; color: #64748B; text-decoration: none; margin-top: 0.5rem; display: inline-block; }
+        .back-link:hover { color: var(--primary-color); }
+
+        /* --- Tool Container --- */
+        .tool-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            flex-grow: 1;
+        }
+
+        .converter-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 0.5rem; color: var(--secondary-color); }
+        p.subtitle { color: #64748B; margin-bottom: 2rem; }
+
+        /* --- Upload Area --- */
+        .upload-area {
+            border: 2px dashed #CBD5E1;
+            border-radius: var(--radius);
+            padding: 3rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: #F8FAFC;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background: #EFF6FF;
+        }
+
+        .upload-icon { font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; }
+        .upload-text { font-weight: 600; margin-bottom: 0.5rem; }
+        .upload-hint { font-size: 0.875rem; color: #94A3B8; }
+        
+        /* Hidden Input */
+        #fileInput { display: none; }
+
+        /* --- Settings Area --- */
+        .settings-area {
+            display: none; /* Hidden until file uploaded */
+            margin-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 2rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* Preview Image */
+        .preview-container {
+            margin-bottom: 2rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .file-info {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #64748B;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        select {
+            padding: 0.75rem 1rem;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        select:focus { border-color: var(--primary-color); }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        
+        .btn-reset {
+            background-color: #F1F5F9;
+            color: #64748B;
+        }
+        
+        .btn-reset:hover { background-color: #E2E8F0; }
+
+        /* Download Section */
+        .result-area {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #ECFDF5;
+            border: 1px solid #6EE7B7;
+            border-radius: 8px;
+            color: #065F46;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .controls { flex-direction: column; width: 100%; }
+            select, .btn { width: 100%; justify-content: center; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">PB Tools</div>
+        <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Homepage</a>
+    </header>
+
+    <div class="tool-container">
+        <div class="converter-card">
+            <h1>Image Converter</h1>
+            <p class="subtitle">Convert your images to JPG, PNG, WEBP, or BMP effortlessly.</p>
+
+            <!-- 1. Upload Section -->
+            <div class="upload-area" id="dropZone">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <div class="upload-text">Click to browse or Drag file here</div>
+                <div class="upload-hint">Supports JPG, PNG, WEBP, BMP (Max 10MB)</div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+
+            <!-- 2. Settings & Preview Section -->
+            <div class="settings-area" id="settingsArea">
+                
+                <div class="preview-container">
+                    <img id="imagePreview" class="preview-img" src="" alt="Preview">
+                    <div class="file-info" id="fileInfo">orig_name.png (2.5 MB)</div>
+                </div>
+
+                <div class="controls">
+                    <label for="formatSelect" style="font-weight:600;">Convert to:</label>
+                    <select id="formatSelect">
+                        <option value="image/jpeg">JPG (JPEG)</option>
+                        <option value="image/png">PNG</option>
+                        <option value="image/webp">WEBP</option>
+                        <option value="image/bmp">BMP</option>
+                    </select>
+
+                    <button class="btn btn-primary" id="convertBtn">
+                        <i class="fas fa-magic"></i> Convert Image
+                    </button>
+                    
+                    <button class="btn btn-reset" id="resetBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+
+                <!-- 3. Download Section -->
+                <div class="result-area" id="resultArea">
+                    <p><i class="fas fa-check-circle"></i> Conversion Successful!</p>
+                    <br>
+                    <a id="downloadBtn" class="btn btn-primary" download>
+                        <i class="fas fa-download"></i> Download Image
+                    </a>
+                </div>
+
+                <!-- Hidden Canvas for processing -->
+                <canvas id="processCanvas" style="display:none;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elements
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const settingsArea = document.getElementById('settingsArea');
+            const imagePreview = document.getElementById('imagePreview');
+            const fileInfo = document.getElementById('fileInfo');
+            const formatSelect = document.getElementById('formatSelect');
+            const convertBtn = document.getElementById('convertBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const resultArea = document.getElementById('resultArea');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const canvas = document.getElementById('processCanvas');
+            const ctx = canvas.getContext('2d');
+
+            let originalFile = null;
+
+            // --- Event Listeners for Upload ---
+
+            // Click to upload
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            // Drag and Drop effects
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            // File Input Change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            // --- Functions ---
+
+            function handleFile(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload a valid image file.');
+                    return;
+                }
+
+                originalFile = file;
+                
+                // Show file info
+                const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+                fileInfo.textContent = `${file.name} (${sizeInMB} MB)`;
+
+                // Read and Preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    // Switch views
+                    dropZone.style.display = 'none';
+                    settingsArea.style.display = 'block';
+                    resultArea.style.display = 'none'; // Hide download if re-converting
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // --- Conversion Logic ---
+
+            convertBtn.addEventListener('click', () => {
+                if (!originalFile) return;
+
+                // Change button text to indicate loading
+                const originalBtnText = convertBtn.innerHTML;
+                convertBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Converting...`;
+                convertBtn.disabled = true;
+
+                // Small timeout to allow UI to update
+                setTimeout(() => {
+                    performConversion();
+                    
+                    // Reset button
+                    convertBtn.innerHTML = originalBtnText;
+                    convertBtn.disabled = false;
+                }, 100);
+            });
+
+            function performConversion() {
+                // Set canvas size to match image
+                canvas.width = imagePreview.naturalWidth;
+                canvas.height = imagePreview.naturalHeight;
+
+                // Handle Transparency for JPEG/BMP (fill white background)
+                const targetFormat = formatSelect.value;
+                if (targetFormat === 'image/jpeg' || targetFormat === 'image/bmp') {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+
+                // Draw image
+                ctx.drawImage(imagePreview, 0, 0);
+
+                // Convert
+                try {
+                    // 0.9 quality for JPEGs/WEBPs
+                    const dataUrl = canvas.toDataURL(targetFormat, 0.9);
+                    
+                    // Generate Filename
+                    const extensionMap = {
+                        'image/jpeg': 'jpg',
+                        'image/png': 'png',
+                        'image/webp': 'webp',
+                        'image/bmp': 'bmp'
+                    };
+                    
+                    const originalNameWithoutExt = originalFile.name.substring(0, originalFile.name.lastIndexOf('.'));
+                    const newExt = extensionMap[targetFormat];
+                    const newFilename = `${originalNameWithoutExt}_converted.${newExt}`;
+
+                    // Setup Download Button
+                    downloadBtn.href = dataUrl;
+                    downloadBtn.download = newFilename;
+
+                    // Show Result
+                    resultArea.style.display = 'block';
+                    
+                    // Smooth scroll to result
+                    resultArea.scrollIntoView({ behavior: 'smooth' });
+
+                } catch (error) {
+                    alert('Error converting image. The image might be too large or corrupted.');
+                    console.error(error);
+                }
+            }
+
+            // --- Reset ---
+            resetBtn.addEventListener('click', () => {
+                originalFile = null;
+                fileInput.value = ''; // clear input
+                settingsArea.style.display = 'none';
+                dropZone.style.display = 'block';
+                resultArea.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
