@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word to PDF Converter</title>
+    
+    <!-- Mammoth.js (For reading .docx files) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <!-- html2pdf.js (For generating PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #007bff; /* Bright Blue */
+            --primary-hover: #0056b3;
+            --bg-color: #F0F4F8;
+            --surface-color: #FFFFFF;
+            --text-color: #333333;
+            --border-color: #D1D9E6;
+            --radius: 12px;
+            --shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--surface-color);
+            width: 100%;
+            max-width: 550px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2.5rem;
+            text-align: center;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: #666;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Upload Zone */
+        .upload-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: var(--radius);
+            padding: 2.5rem 1rem;
+            background-color: #F8FBFF;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .upload-area:hover, .upload-area.drag-active {
+            background-color: #E6F0FF;
+            border-color: var(--primary-hover);
+        }
+
+        .upload-area input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        /* File Info */
+        .file-info {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            text-align: left;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .file-name {
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .file-size {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Convert Button */
+        .btn-convert {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            width: 100%;
+            transition: background-color 0.2s;
+            display: none; /* Hidden until file selected */
+        }
+
+        .btn-convert:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-convert:disabled {
+            background-color: #a0cbf7;
+            cursor: not-allowed;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error Message */
+        .error-msg {
+            color: #dc3545;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* Hidden content area for PDF generation */
+        #hidden-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 800px; /* Standard A4 width approx */
+            background: white;
+            padding: 40px;
+            font-family: 'Times New Roman', serif;
+            line-height: 1.6;
+            color: black;
+        }
+        
+        /* Styles for the generated content within the hidden div */
+        #hidden-content h1, #hidden-content h2, #hidden-content h3 { color: #000; margin-top: 1em; }
+        #hidden-content p { margin-bottom: 1em; }
+        #hidden-content table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+        #hidden-content td, #hidden-content th { border: 1px solid #000; padding: 5px; }
+
+        @media (max-width: 480px) {
+            .container { padding: 1.5rem; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Word to PDF</h1>
+            <p>Convert .docx files to PDF instantly in your browser.</p>
+        </header>
+
+        <!-- Upload Zone -->
+        <div class="upload-area" id="drop-zone">
+            <span class="icon">📄</span>
+            <h3>Drag & Drop or Click</h3>
+            <p style="color: #999; margin-top: 5px;">Supports .docx files</p>
+            <input type="file" id="file-input" accept=".docx">
+        </div>
+
+        <!-- File Details -->
+        <div class="file-info" id="file-info">
+            <div class="file-name" id="file-name-display">filename.docx</div>
+            <div class="file-size" id="file-size-display">0 KB</div>
+        </div>
+
+        <!-- Action Button -->
+        <button class="btn-convert" id="convert-btn">
+            <span class="spinner" id="spinner"></span>
+            <span id="btn-text">Convert & Download PDF</span>
+        </button>
+
+        <!-- Error Feedback -->
+        <p class="error-msg" id="error-msg"></p>
+    </div>
+
+    <!-- Hidden Container for HTML Rendering -->
+    <div id="hidden-content"></div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const fileSizeDisplay = document.getElementById('file-size-display');
+        const convertBtn = document.getElementById('convert-btn');
+        const btnText = document.getElementById('btn-text');
+        const spinner = document.getElementById('spinner');
+        const errorMsg = document.getElementById('error-msg');
+        const hiddenContent = document.getElementById('hidden-content');
+
+        let selectedFile = null;
+
+        // --- Event Listeners ---
+
+        // Drag & Drop Visuals
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-active');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-active');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-active');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Input Change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Convert Click
+        convertBtn.addEventListener('click', convertToPdf);
+
+        // --- Functions ---
+
+        function handleFileSelect(file) {
+            errorMsg.style.display = 'none';
+            
+            // Validate File Type
+            if (file.type !== "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+                showError("Please upload a valid .docx file.");
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Update UI
+            fileNameDisplay.textContent = file.name;
+            fileSizeDisplay.textContent = (file.size / 1024).toFixed(1) + " KB";
+            
+            dropZone.style.display = 'none';
+            fileInfo.style.display = 'block';
+            convertBtn.style.display = 'block';
+        }
+
+        function convertToPdf() {
+            if (!selectedFile) return;
+
+            setLoading(true);
+
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const arrayBuffer = event.target.result;
+
+                // 1. Use Mammoth to convert Docx -> HTML
+                mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+                    .then(displayResult)
+                    .catch(handleError);
+            };
+
+            reader.readAsArrayBuffer(selectedFile);
+        }
+
+        function displayResult(result) {
+            // 2. Put HTML into hidden container
+            hiddenContent.innerHTML = result.value;
+
+            // 3. Configure html2pdf options
+            const opt = {
+                margin:       [10, 10, 10, 10], // top, left, bottom, right (mm)
+                filename:     selectedFile.name.replace('.docx', '.pdf'),
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // 4. Generate PDF from the DOM element
+            html2pdf().set(opt).from(hiddenContent).save().then(() => {
+                setLoading(false);
+                // Optional: Reset UI after brief delay
+                setTimeout(() => {
+                    alert("Download started!");
+                    resetUI();
+                }, 1000);
+            }).catch(err => {
+                handleError(err);
+            });
+        }
+
+        function handleError(err) {
+            console.error(err);
+            setLoading(false);
+            showError("An error occurred during conversion. The file might be corrupt or too complex.");
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                convertBtn.disabled = true;
+                spinner.style.display = 'inline-block';
+                btnText.textContent = "Processing...";
+            } else {
+                convertBtn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.textContent = "Convert & Download PDF";
+            }
+        }
+
+        function resetUI() {
+            selectedFile = null;
+            fileInput.value = "";
+            dropZone.style.display = 'block';
+            fileInfo.style.display = 'none';
+            convertBtn.style.display = 'none';
+            hiddenContent.innerHTML = "";
+        }
+    </script>
+</body>
+</html>
