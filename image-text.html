@@ -1,127 +1,402 @@
-  
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Image to Text Tool</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f8ff;
-      color: #000;
-      margin: 0;
-      padding: 0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PB Tools - Image to Text Converter (OCR)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js'></script>
 
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
+    <style>
+        /* --- INHERITED THEME VARIABLES (From your main page) --- */
+        :root {
+            --primary-color: #2563EB; /* Modern Blue */
+            --primary-dark: #1D4ED8;
+            --secondary-color: #1E293B;
+            --bg-color: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --text-gray: #64748B;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
 
-    h1 {
-      text-align: center;
-      color: #007bff;
-    }
+        /* --- BASE STYLES --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--secondary-color);
+            line-height: 1.6;
+            padding: 2rem 1rem;
+        }
 
-    .upload-section {
-      background: #ffffff;
-      border: 2px dashed #007bff;
-      padding: 2rem;
-      text-align: center;
-      border-radius: 10px;
-    }
+        /* --- TOOL CONTAINER --- */
+        .tool-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
 
-    input[type="file"] {
-      display: none;
-    }
+        .tool-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .tool-header h1 { color: var(--primary-color); margin-bottom: 0.5rem; }
+        .tool-header p { color: var(--text-gray); }
 
-    label[for="imageInput"] {
-      background-color: #007bff;
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-    }
+        /* --- UPLOAD ZONE --- */
+        .upload-container {
+            border: 2px dashed #CBD5E1;
+            border-radius: var(--border-radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #F8FAFC;
+            margin-bottom: 2rem;
+        }
 
-    #output {
-      margin-top: 1rem;
-      background: #e6f0ff;
-      padding: 1rem;
-      border-radius: 5px;
-      white-space: pre-wrap;
-    }
+        .upload-container:hover, .upload-container.dragover {
+            border-color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.05);
+        }
 
-    button.copy-btn {
-      margin-top: 0.5rem;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-    }
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
 
-    @media (max-width: 600px) {
-      .container {
-        padding: 0.5rem;
-      }
+        #fileInput { display: none; }
 
-      .upload-section {
-        padding: 1rem;
-      }
-    }
-  </style>
+        /* --- PREVIEW & RESULT AREA (SPLIT LAYOUT) --- */
+        .split-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* On tablets and up, side-by-side view */
+        @media (min-width: 768px) {
+            .split-layout {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+            .split-layout > div { flex: 1; width: 50%; }
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+            display: none; /* Hidden until image loaded */
+            box-shadow: var(--shadow);
+        }
+
+        /* --- ACTIONS & PROGRESS --- */
+        .actions-area { margin-bottom: 1rem; }
+
+        .primary-btn, .copy-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .primary-btn:hover:not(:disabled), .copy-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .primary-btn:disabled {
+            background-color: #94A3B8;
+            cursor: not-allowed;
+        }
+
+        .copy-btn {
+            background-color: var(--secondary-color);
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            padding: 0.5rem;
+        }
+
+        /* --- PROGRESS BAR --- */
+        #progressContainer {
+            margin-top: 1rem;
+            display: none; /* Hidden initially */
+        }
+        .progress-bar-bg {
+            background: #E2E8F0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        #statusText {
+            font-size: 0.85rem;
+            color: var(--text-gray);
+            text-align: center;
+            margin-top: 0.5rem;
+            display: block;
+        }
+
+        /* --- TEXT OUTPUT AREA --- */
+        .output-box textarea {
+            width: 100%;
+            height: 300px;
+            padding: 1rem;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-family: inherit;
+            resize: vertical;
+            background: #F8FAFC;
+        }
+        .output-box textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Image to Text</h1>
-    <div class="upload-section">
-      <label for="imageInput">Upload Image</label>
-      <input type="file" id="imageInput" accept="image/*" />
+
+    <div class="tool-container">
+        <div class="tool-header">
+             <a href="index.html" style="color: var(--text-gray); font-size: 0.9rem; float: left;"><i class="fas fa-arrow-left"></i> Back to Tools</a>
+             <div style="clear: both;"></div>
+             <br>
+            <h1><i class="fas fa-font"></i> Image to Text (OCR)</h1>
+            <p>Upload an image, and AI will extract the text for you.</p>
+        </div>
+
+        <label for="fileInput" class="upload-container" id="dropZone">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <h3>Click or Drag Image Here</h3>
+            <p style="color: var(--text-gray); font-size: 0.9rem;">Supports JPG, PNG, BMP, WEBP</p>
+            <input type="file" id="fileInput" accept="image/png, image/jpeg, image/jpg, image/webp">
+        </label>
+
+        <div class="split-layout">
+            
+            <div class="preview-box">
+                <h3>1. Image Preview</h3>
+                <img id="imagePreview" alt="Image preview will appear here">
+                <p id="noImagePlaceholder" style="color: var(--text-gray); padding: 2rem; text-align: center; border: 1px dashed #E2E8F0; border-radius: 8px;">No image selected yet.</p>
+            </div>
+
+            <div class="output-box">
+                 <h3>2. Extracted Text</h3>
+                <div class="actions-area">
+                    <button id="convertBtn" class="primary-btn" disabled>
+                        <i class="fas fa-cog"></i> Extract Text Now
+                    </button>
+
+                    <div id="progressContainer">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progressFill"></div>
+                        </div>
+                        <span id="statusText">Initializing engine...</span>
+                    </div>
+                </div>
+
+                <textarea id="outputText" placeholder="The extracted text will appear here after processing..."></textarea>
+                
+                <button id="copyBtn" class="copy-btn" style="display: none;">
+                    <i class="far fa-copy"></i> Copy Text to Clipboard
+                </button>
+            </div>
+        </div>
+
     </div>
-    <div id="output" style="display:none;"></div>
-    <button class="copy-btn" style="display:none;" onclick="copyText()">Copy Text</button>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.4/dist/tesseract.min.js"></script>
-  <script>
-    const imageInput = document.getElementById('imageInput');
-    const output = document.getElementById('output');
-    const copyBtn = document.querySelector('.copy-btn');
 
-    imageInput.addEventListener('change', async () => {
-      if (imageInput.files.length === 0) return;
+    <script>
+        // Get Elements
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const imagePreview = document.getElementById('imagePreview');
+        const noImagePlaceholder = document.getElementById('noImagePlaceholder');
+        const convertBtn = document.getElementById('convertBtn');
+        const outputText = document.getElementById('outputText');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const statusText = document.getElementById('statusText');
+        const copyBtn = document.getElementById('copyBtn');
 
-      const file = imageInput.files[0];
-      const reader = new FileReader();
+        let selectedFile = null;
 
-      reader.onload = async () => {
-        output.style.display = 'block';
-        output.textContent = 'Processing...';
+        // --- Event Listeners for File Handling ---
 
-        try {
-          const result = await Tesseract.recognize(reader.result, 'eng');
-          output.textContent = result.data.text;
-          copyBtn.style.display = 'inline-block';
-        } catch (err) {
-          output.textContent = 'Error processing image.';
-          console.error(err);
+        // 1. Handle File Input Click
+        fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+
+        // 2. Handle Drag and Drop styles
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+        });
+
+        // 3. Handle File Drop
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+                // Update file input so it behaves normally if clicked afterwards
+                fileInput.files = files; 
+            }
+        });
+
+
+        // --- Main File Selection Logic ---
+        function handleFileSelect(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            selectedFile = file;
+
+            // Read and preview image
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                noImagePlaceholder.style.display = 'none';
+                // Enable the convert button now that we have an image
+                convertBtn.disabled = false;
+                // Reset previous outputs
+                outputText.value = '';
+                copyBtn.style.display = 'none';
+                resetProgress();
+            }
+            reader.readAsDataURL(file);
         }
-      };
 
-      reader.readAsDataURL(file);
-    });
 
-    function copyText() {
-      const text = output.textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Text copied to clipboard!');
-      });
-    }
-  </script>
+        // --- OCR Conversion Logic (Using Tesseract.js) ---
+
+        convertBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            // UI Updates: Start processing
+            convertBtn.disabled = true;
+            convertBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            progressContainer.style.display = 'block';
+            outputText.value = 'Processing image. This may take a few seconds depending on image complexity...';
+            copyBtn.style.display = 'none';
+            
+            try {
+                 // The magic happens here
+                 const worker = await Tesseract.createWorker({
+                    logger: m => updateProgress(m)
+                 });
+                 
+                 await worker.loadLanguage('eng');
+                 await worker.initialize('eng');
+                 
+                 statusText.innerText = "Recognizing text...";
+                 const { data: { text } } = await worker.recognize(selectedFile);
+                 
+                 // Success!
+                 if(text.trim().length === 0) {
+                      outputText.value = "No readable text found in the image.";
+                 } else {
+                      outputText.value = text;
+                      copyBtn.style.display = 'flex';
+                 }
+                 
+                 await worker.terminate();
+
+            } catch (err) {
+                console.error(err);
+                outputText.value = "Error during processing: " + err.message;
+                statusText.innerText = "Failed.";
+                statusText.style.color = "red";
+            } finally {
+                // UI Updates: Finish processing
+                convertBtn.disabled = false;
+                convertBtn.innerHTML = '<i class="fas fa-cog"></i> Extract Text Again';
+                setTimeout(() => {
+                     if(statusText.innerText === "Completed!") {
+                         progressContainer.style.display = 'none';
+                     }
+                }, 2000);
+            }
+        });
+
+
+        // --- Helper functions ---
+
+        function updateProgress(packet) {
+            // Tesseract logger sends status packets. We check progress.
+             if(packet.status === 'recognizing text') {
+                const percent = Math.round(packet.progress * 100);
+                progressFill.style.width = `${percent}%`;
+                statusText.innerText = `Analyzing... ${percent}%`;
+             } else {
+                 // Other initialization statuses
+                 statusText.innerText = formatStatus(packet.status);
+             }
+             
+             if(packet.status === "done" || (packet.status === 'recognizing text' && packet.progress === 1)) {
+                 statusText.innerText = "Completed!";
+                 progressFill.style.width = "100%";
+             }
+        }
+
+        function formatStatus(status) {
+            // Capitalize first letter of status messages
+            return status.charAt(0).toUpperCase() + status.slice(1) + "...";
+        }
+
+        function resetProgress() {
+            progressContainer.style.display = 'none';
+            progressFill.style.width = '0%';
+            statusText.innerText = 'Initializing...';
+            statusText.style.color = 'var(--text-gray)';
+        }
+
+        // --- Copy to Clipboard Feature ---
+        copyBtn.addEventListener('click', () => {
+            outputText.select();
+            outputText.setSelectionRange(0, 99999); // For mobile devices
+            navigator.clipboard.writeText(outputText.value).then(() => {
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+
+    </script>
 </body>
 </html>
-  
-  
