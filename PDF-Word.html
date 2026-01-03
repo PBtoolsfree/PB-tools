@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Word Converter</title>
+    
+    <!-- PDF.js for reading PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    
+    <!-- Docx library for generating .docx files -->
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <!-- FileSaver for saving the file -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #2563EB; /* Bright Blue */
+            --primary-hover: #1d4ed8;
+            --bg-color: #F0F9FF;
+            --surface-color: #FFFFFF;
+            --text-color: #1F2937;
+            --border-color: #BFDBFE;
+            --radius: 12px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--surface-color);
+            width: 100%;
+            max-width: 700px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            position: relative;
+            background-color: #f8fafc;
+        }
+
+        .upload-area:hover {
+            background-color: #EFF6FF;
+        }
+
+        .upload-area input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .icon {
+            font-size: 3.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .file-info {
+            display: none; /* Hidden initially */
+            background: #EFF6FF;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            word-break: break-all;
+        }
+
+        /* Progress Bar */
+        .progress-wrapper {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background-color: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-align: right;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-primary:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
+        }
+
+        .btn-download {
+            background-color: #10b981; /* Green for download */
+            color: white;
+            display: none; /* Hidden initially */
+        }
+
+        .btn-download:hover {
+            background-color: #059669;
+        }
+
+        .alert {
+            font-size: 0.85rem;
+            color: #d97706; /* Amber color */
+            background-color: #fffbeb;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 5px;
+            border: 1px solid #fcd34d;
+            text-align: center;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 1.5rem; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>PDF to Word Converter</h1>
+            <p class="subtitle">Convert PDF documents to editable Word (.docx) files.</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="upload-area" id="upload-area">
+            <span class="icon">📄</span>
+            <h3>Click or Drag PDF Here</h3>
+            <p style="color: #94a3b8; margin-top: 5px;">Max file size: 10MB</p>
+            <input type="file" id="file-input" accept="application/pdf">
+        </div>
+
+        <!-- File Selected Display -->
+        <div class="file-info" id="file-info">
+            <p>Selected File:</p>
+            <div class="file-name" id="file-name">document.pdf</div>
+            <div class="alert">Note: This tool extracts text and paragraphs. Complex layouts/images may not be preserved perfectly.</div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-wrapper" id="progress-wrapper">
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p class="status-text" id="status-text">Processing page 1...</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <button class="btn btn-primary" id="convert-btn" disabled>
+            <span>🔄 Convert to Word</span>
+        </button>
+
+        <button class="btn btn-download" id="download-btn">
+            <span>⬇️ Download .docx</span>
+        </button>
+        
+        <button class="btn" style="background:transparent; color:#64748b; margin-top:-10px; display:none;" id="reset-btn">
+            Convert Another File
+        </button>
+
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const uploadArea = document.getElementById('upload-area');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameDisplay = document.getElementById('file-name');
+        const convertBtn = document.getElementById('convert-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const progressFill = document.getElementById('progress-fill');
+        const statusText = document.getElementById('status-text');
+
+        let selectedFile = null;
+        let generatedDocBlob = null;
+        let originalFileName = "";
+
+        // --- Event Listeners ---
+
+        fileInput.addEventListener('change', handleFileSelect);
+        convertBtn.addEventListener('click', startConversion);
+        downloadBtn.addEventListener('click', downloadFile);
+        resetBtn.addEventListener('click', resetTool);
+
+        // Drag and Drop Effects
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#EFF6FF';
+            uploadArea.style.borderColor = '#1d4ed8';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.backgroundColor = '#f8fafc';
+            uploadArea.style.borderColor = '#2563EB';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#f8fafc';
+            uploadArea.style.borderColor = '#2563EB';
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                if(e.dataTransfer.files[0].type === "application/pdf") {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect({ target: fileInput });
+                } else {
+                    alert("Please upload a valid PDF file.");
+                }
+            }
+        });
+
+        // --- Functions ---
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                originalFileName = file.name.replace('.pdf', '');
+                
+                // Update UI
+                fileNameDisplay.textContent = file.name;
+                uploadArea.style.display = 'none';
+                fileInfo.style.display = 'block';
+                convertBtn.disabled = false;
+                downloadBtn.style.display = 'none';
+                resetBtn.style.display = 'none';
+            }
+        }
+
+        async function startConversion() {
+            if (!selectedFile) return;
+
+            convertBtn.disabled = true;
+            convertBtn.innerHTML = 'Processing...';
+            progressWrapper.style.display = 'flex';
+            
+            try {
+                // 1. Read PDF
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const totalPages = pdf.numPages;
+                
+                const docChildren = []; // Array to hold Docx paragraphs
+
+                // 2. Iterate Pages
+                for (let i = 1; i <= totalPages; i++) {
+                    // Update Progress
+                    const percent = Math.round((i / totalPages) * 100);
+                    progressFill.style.width = `${percent}%`;
+                    statusText.innerText = `Reading page ${i} of ${totalPages}...`;
+
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    // Simple reconstruction logic
+                    // We group items by their Y coordinate (lines)
+                    let lastY = -1;
+                    let lineText = "";
+
+                    // Sort items by Y (descending) then X (ascending) to ensure reading order
+                    const items = textContent.items.sort((a, b) => {
+                        if (Math.abs(a.transform[5] - b.transform[5]) > 5) {
+                            return b.transform[5] - a.transform[5]; // Top to bottom
+                        }
+                        return a.transform[4] - b.transform[4]; // Left to right
+                    });
+
+                    items.forEach((item) => {
+                        // Check for new line based on significant Y difference
+                        if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 10) {
+                            // Push previous line to doc
+                            docChildren.push(
+                                new docx.Paragraph({
+                                    children: [new docx.TextRun(lineText)],
+                                    spacing: { after: 200 } // Add some spacing
+                                })
+                            );
+                            lineText = "";
+                        }
+                        
+                        lineText += item.str + (item.hasEOL ? "\n" : " ");
+                        lastY = item.transform[5];
+                    });
+
+                    // Push last line of page
+                    if (lineText.trim().length > 0) {
+                        docChildren.push(
+                            new docx.Paragraph({
+                                children: [new docx.TextRun(lineText)],
+                                spacing: { after: 200 }
+                            })
+                        );
+                    }
+
+                    // Add page break after every page except the last
+                    if (i < totalPages) {
+                        docChildren.push(new docx.Paragraph({
+                            children: [new docx.PageBreak()]
+                        }));
+                    }
+                }
+
+                statusText.innerText = "Generating Word document...";
+
+                // 3. Create Docx
+                const doc = new docx.Document({
+                    sections: [{
+                        properties: {},
+                        children: docChildren,
+                    }],
+                });
+
+                // 4. Generate Blob
+                generatedDocBlob = await docx.Packer.toBlob(doc);
+
+                // UI Success State
+                convertBtn.style.display = 'none';
+                downloadBtn.style.display = 'flex';
+                resetBtn.style.display = 'block';
+                statusText.innerText = "Conversion Complete!";
+                progressFill.style.backgroundColor = '#10b981';
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "Error: " + error.message;
+                progressFill.style.backgroundColor = '#ef4444';
+                convertBtn.disabled = false;
+                convertBtn.innerHTML = '<span>🔄 Try Again</span>';
+            }
+        }
+
+        function downloadFile() {
+            if (generatedDocBlob) {
+                saveAs(generatedDocBlob, `${originalFileName}.docx`);
+            }
+        }
+
+        function resetTool() {
+            selectedFile = null;
+            generatedDocBlob = null;
+            fileInput.value = '';
+            
+            // Reset UI
+            uploadArea.style.display = 'block';
+            fileInfo.style.display = 'none';
+            convertBtn.style.display = 'flex';
+            convertBtn.disabled = true;
+            convertBtn.innerHTML = '<span>🔄 Convert to Word</span>';
+            downloadBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            progressWrapper.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressFill.style.backgroundColor = 'var(--primary-color)';
+        }
+    </script>
+</body>
+</html>
