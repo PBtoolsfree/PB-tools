@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Document Converter</title>
+    
+    <!-- PDF.js (Read PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    
+    <!-- Mammoth.js (Read DOCX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <!-- jsPDF (Write PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Docx.js (Write DOCX) -->
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    
+    <!-- FileSaver (Save Files) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #2563EB; /* Bright Blue */
+            --primary-hover: #1d4ed8;
+            --bg-color: #F0F9FF;
+            --surface-color: #FFFFFF;
+            --text-color: #1F2937;
+            --border-color: #BFDBFE;
+            --radius: 12px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--surface-color);
+            width: 100%;
+            max-width: 600px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+            background: #f8fafc;
+        }
+
+        .upload-area:hover {
+            background-color: #EFF6FF;
+        }
+
+        .upload-area input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .icon { font-size: 3rem; margin-bottom: 10px; display: block; }
+
+        /* File Info */
+        .file-info {
+            display: none;
+            background: #EFF6FF;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .file-name { font-weight: bold; color: var(--primary-color); word-break: break-all; }
+
+        /* Conversion Controls */
+        .controls {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label { font-weight: 600; font-size: 0.9rem; }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+            font-size: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-primary:disabled { background-color: #93c5fd; cursor: not-allowed; }
+
+        .btn-secondary { background-color: #10b981; color: white; display: none; }
+        .btn-secondary:hover { background-color: #059669; }
+
+        .btn-reset { background: transparent; color: #64748b; margin-top: 10px; display: none; }
+
+        /* Progress */
+        .status-text {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #64748b;
+            min-height: 20px;
+        }
+
+        .note {
+            font-size: 0.8rem;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #b45309;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Document Converter</h1>
+            <p style="color: #64748b;">Convert between PDF, DOCX, and TXT.</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="upload-area" id="upload-area">
+            <span class="icon">📂</span>
+            <h3>Click or Drag File Here</h3>
+            <p style="color: #94a3b8; font-size: 0.9rem;">Supports .pdf, .docx, .txt</p>
+            <input type="file" id="file-input" accept=".pdf,.docx,.txt">
+        </div>
+
+        <!-- File Details -->
+        <div class="file-info" id="file-info">
+            <div class="file-name" id="file-name">filename.ext</div>
+        </div>
+
+        <!-- Conversion Settings -->
+        <div class="controls" id="controls">
+            <label>Convert To:</label>
+            <select id="target-format"></select>
+            
+            <div class="note">
+                Note: This tool runs in your browser. It extracts <strong>text content</strong> for conversion. 
+                Complex layouts, images, or tables may not be preserved perfectly.
+            </div>
+        </div>
+
+        <p class="status-text" id="status-text"></p>
+
+        <!-- Actions -->
+        <button class="btn btn-primary" id="convert-btn" style="display:none;">
+            <span>🔄 Convert Document</span>
+        </button>
+
+        <button class="btn btn-secondary" id="download-btn">
+            <span>⬇️ Download Result</span>
+        </button>
+
+        <button class="btn btn-reset" id="reset-btn">
+            Convert Another File
+        </button>
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const uploadArea = document.getElementById('upload-area');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameDisplay = document.getElementById('file-name');
+        const controls = document.getElementById('controls');
+        const targetSelect = document.getElementById('target-format');
+        const convertBtn = document.getElementById('convert-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const statusText = document.getElementById('status-text');
+
+        let selectedFile = null;
+        let sourceFormat = null;
+        let conversionResultBlob = null;
+        let conversionExtension = null;
+
+        // --- Event Listeners ---
+        fileInput.addEventListener('change', handleFileSelect);
+        convertBtn.addEventListener('click', performConversion);
+        downloadBtn.addEventListener('click', downloadFile);
+        resetBtn.addEventListener('click', resetTool);
+
+        // Drag & Drop Styling
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#EFF6FF';
+            uploadArea.style.borderColor = '#1d4ed8';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.backgroundColor = '#f8fafc';
+            uploadArea.style.borderColor = '#2563EB';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#f8fafc';
+            uploadArea.style.borderColor = '#2563EB';
+            if (e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            }
+        });
+
+        // --- Core Logic ---
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Determine Format
+            const ext = file.name.split('.').pop().toLowerCase();
+            const validExts = ['pdf', 'docx', 'txt'];
+            
+            if (!validExts.includes(ext)) {
+                alert("Invalid file type. Please upload PDF, DOCX, or TXT.");
+                return;
+            }
+
+            selectedFile = file;
+            sourceFormat = ext;
+
+            // Update UI
+            fileNameDisplay.textContent = file.name;
+            uploadArea.style.display = 'none';
+            fileInfo.style.display = 'block';
+            controls.style.display = 'flex';
+            convertBtn.style.display = 'flex';
+
+            // Populate Target Options
+            targetSelect.innerHTML = '';
+            validExts.forEach(opt => {
+                if (opt !== ext) {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = opt.toUpperCase();
+                    targetSelect.appendChild(option);
+                }
+            });
+        }
+
+        async function performConversion() {
+            const targetFormat = targetSelect.value;
+            
+            convertBtn.disabled = true;
+            convertBtn.textContent = "Processing...";
+            statusText.textContent = "Extracting text content...";
+            
+            try {
+                let textContent = "";
+
+                // 1. EXTRACT TEXT BASED ON SOURCE
+                if (sourceFormat === 'txt') {
+                    textContent = await selectedFile.text();
+                } 
+                else if (sourceFormat === 'pdf') {
+                    textContent = await extractTextFromPDF(selectedFile);
+                } 
+                else if (sourceFormat === 'docx') {
+                    textContent = await extractTextFromDOCX(selectedFile);
+                }
+
+                statusText.textContent = `Generating ${targetFormat.toUpperCase()} file...`;
+
+                // 2. GENERATE OUTPUT BASED ON TARGET
+                if (targetFormat === 'txt') {
+                    createTXT(textContent);
+                } 
+                else if (targetFormat === 'pdf') {
+                    createPDF(textContent);
+                } 
+                else if (targetFormat === 'docx') {
+                    await createDOCX(textContent);
+                }
+
+                // 3. FINALIZE
+                statusText.textContent = "Conversion Successful!";
+                convertBtn.style.display = 'none';
+                controls.style.display = 'none';
+                downloadBtn.style.display = 'flex';
+                resetBtn.style.display = 'flex';
+
+            } catch (err) {
+                console.error(err);
+                statusText.textContent = "Error: " + err.message;
+                statusText.style.color = "red";
+                convertBtn.disabled = false;
+                convertBtn.textContent = "Try Again";
+            }
+        }
+
+        // --- Extraction Helpers ---
+
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + "\n\n";
+            }
+            return fullText;
+        }
+
+        async function extractTextFromDOCX(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+            return result.value;
+        }
+
+        // --- Generation Helpers ---
+
+        function createTXT(text) {
+            conversionResultBlob = new Blob([text], { type: "text/plain;charset=utf-8" });
+            conversionExtension = "txt";
+        }
+
+        function createPDF(text) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                unit: 'pt', // points are easier for wrapping text
+                format: 'a4'
+            });
+
+            // Split text to fit page width
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 40;
+            const maxLineWidth = pageWidth - (margin * 2);
+            
+            const splitText = doc.splitTextToSize(text, maxLineWidth);
+            
+            // Add text (automatically adds pages if text is too long)
+            let cursorY = 40;
+            const lineHeight = 14;
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            splitText.forEach(line => {
+                if (cursorY + lineHeight > pageHeight - margin) {
+                    doc.addPage();
+                    cursorY = margin;
+                }
+                doc.text(line, margin, cursorY);
+                cursorY += lineHeight;
+            });
+
+            conversionResultBlob = doc.output('blob');
+            conversionExtension = "pdf";
+        }
+
+        async function createDOCX(text) {
+            // Split by newlines to create paragraphs
+            const lines = text.split('\n');
+            
+            const docChildren = lines.map(line => {
+                return new docx.Paragraph({
+                    children: [new docx.TextRun(line)],
+                    spacing: { after: 100 }
+                });
+            });
+
+            const doc = new docx.Document({
+                sections: [{
+                    properties: {},
+                    children: docChildren,
+                }],
+            });
+
+            conversionResultBlob = await docx.Packer.toBlob(doc);
+            conversionExtension = "docx";
+        }
+
+        // --- Utility ---
+
+        function downloadFile() {
+            if (conversionResultBlob) {
+                const originalName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.'));
+                saveAs(conversionResultBlob, `${originalName}_converted.${conversionExtension}`);
+            }
+        }
+
+        function resetTool() {
+            selectedFile = null;
+            sourceFormat = null;
+            conversionResultBlob = null;
+            fileInput.value = '';
+            
+            uploadArea.style.display = 'block';
+            fileInfo.style.display = 'none';
+            controls.style.display = 'none';
+            convertBtn.style.display = 'none';
+            downloadBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            statusText.textContent = '';
+            convertBtn.disabled = false;
+            convertBtn.textContent = '🔄 Convert Document';
+            statusText.style.color = '#64748b';
+        }
+    </script>
+</body>
+</html>
