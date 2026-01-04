@@ -12,7 +12,7 @@
 
     <style>
         :root {
-            --primary-color: #2563EB; /* Bright Blue */
+            --primary-color: #2563EB;
             --primary-hover: #1d4ed8;
             --bg-color: #F0F9FF;
             --surface-color: #FFFFFF;
@@ -248,7 +248,7 @@
 
     <script>
         // --- State & DOM Elements ---
-        let currentMode = 'lock'; // 'lock' or 'unlock'
+        let currentMode = 'lock'; 
         let selectedFileArrayBuffer = null;
         let selectedFileName = '';
 
@@ -264,11 +264,8 @@
         const statusMsg = document.getElementById('status-msg');
 
         // --- Event Listeners ---
-        
-        // File Selection
         fileInput.addEventListener('change', handleFileSelect);
 
-        // Drag & Drop Visuals
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
@@ -286,20 +283,15 @@
         });
 
         // --- Functions ---
-
         function switchTab(mode) {
             currentMode = mode;
-            
-            // Reset UI State
             statusMsg.textContent = '';
             statusMsg.className = 'status-msg';
             passwordInput.value = '';
             
-            // Update Tabs
             document.getElementById('tab-lock').classList.toggle('active', mode === 'lock');
             document.getElementById('tab-unlock').classList.toggle('active', mode === 'unlock');
 
-            // Update Text
             if (mode === 'lock') {
                 instructionText.textContent = "Upload a PDF to protect it with a password.";
                 passLabel.textContent = "Set Password";
@@ -327,7 +319,6 @@
                 uploadText.style.display = 'none';
                 dropZone.style.border = '2px solid var(--primary-color)';
                 
-                // Read File
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     selectedFileArrayBuffer = e.target.result;
@@ -338,7 +329,7 @@
         }
 
         async function processPDF() {
-            // Validation
+            // 1. Validation
             if (!selectedFileArrayBuffer) {
                 showError("Please upload a PDF file first.");
                 return;
@@ -348,6 +339,7 @@
                 return;
             }
 
+            // 2. UI Updates
             actionBtn.disabled = true;
             actionBtn.innerText = "Processing...";
             statusMsg.textContent = "";
@@ -358,41 +350,49 @@
                 if (currentMode === 'lock') {
                     // --- LOCK LOGIC ---
                     
-                    // Load the PDF
                     let pdfDoc;
                     try {
                         pdfDoc = await PDFDocument.load(selectedFileArrayBuffer);
                     } catch (e) {
-                        throw new Error("Cannot load PDF. Is it already password protected? Use the 'Unlock' tab.");
+                        throw new Error("Cannot load PDF. Is it already encrypted? Use 'Unlock' tab.");
                     }
 
-                    // Encrypting during SAVE (Fixed code)
                     const password = passwordInput.value;
+
+                    // FIX: Applied strictly inside save() with PERMISSIONS
+                    // This ensures the viewer forces a password prompt.
                     const pdfBytes = await pdfDoc.save({
                         userPassword: password,
-                        ownerPassword: password
+                        ownerPassword: password,
+                        permissions: {
+                            printing: 'highResolution',
+                            modifying: false,
+                            copying: false,
+                            annotating: false,
+                            fillingForms: false,
+                            contentAccessibility: false,
+                            documentAssembly: false
+                        }
                     });
 
-                    // Save & Download
                     downloadFile(pdfBytes, `locked_${selectedFileName}`);
-                    showSuccess("PDF Locked Successfully!");
+                    showSuccess("PDF Locked! Open the DOWNLOADED file to test.");
 
                 } else {
                     // --- UNLOCK LOGIC ---
                     
-                    // Load the PDF with the provided password
                     let pdfDoc;
                     try {
                         pdfDoc = await PDFDocument.load(selectedFileArrayBuffer, { 
                             password: passwordInput.value 
                         });
                     } catch (e) {
-                        // pdf-lib throws generic error if password is wrong
                         throw new Error("Incorrect Password or file is not encrypted.");
                     }
 
-                    // To unlock, we simply save the document again without passing encrypt options
+                    // Save without options (removes password)
                     const pdfBytes = await pdfDoc.save();
+                    
                     downloadFile(pdfBytes, `unlocked_${selectedFileName}`);
                     showSuccess("PDF Unlocked Successfully!");
                 }
@@ -405,8 +405,6 @@
                 actionBtn.innerText = currentMode === 'lock' ? "Lock & Download" : "Unlock & Download";
             }
         }
-
-        // --- Helper Functions ---
 
         function downloadFile(bytes, filename) {
             const blob = new Blob([bytes], { type: "application/pdf" });
