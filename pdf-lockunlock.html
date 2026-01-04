@@ -12,7 +12,7 @@
 
     <style>
         :root {
-            --primary-color: #2563EB; /* Bright Blue */
+            --primary-color: #2563EB;
             --primary-hover: #1d4ed8;
             --bg-color: #F0F9FF;
             --surface-color: #FFFFFF;
@@ -265,10 +265,9 @@
 
         // --- Event Listeners ---
         
-        // File Selection
         fileInput.addEventListener('change', handleFileSelect);
 
-        // Drag & Drop Visuals
+        // Drag & Drop
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
@@ -290,16 +289,14 @@
         function switchTab(mode) {
             currentMode = mode;
             
-            // Reset UI State
+            // Reset UI
             statusMsg.textContent = '';
             statusMsg.className = 'status-msg';
             passwordInput.value = '';
             
-            // Update Tabs
             document.getElementById('tab-lock').classList.toggle('active', mode === 'lock');
             document.getElementById('tab-unlock').classList.toggle('active', mode === 'unlock');
 
-            // Update Text
             if (mode === 'lock') {
                 instructionText.textContent = "Upload a PDF to protect it with a password.";
                 passLabel.textContent = "Set Password";
@@ -327,7 +324,6 @@
                 uploadText.style.display = 'none';
                 dropZone.style.border = '2px solid var(--primary-color)';
                 
-                // Read File
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     selectedFileArrayBuffer = e.target.result;
@@ -358,47 +354,40 @@
                 if (currentMode === 'lock') {
                     // --- LOCK LOGIC ---
                     
-                    // Load the PDF
                     let pdfDoc;
                     try {
                         pdfDoc = await PDFDocument.load(selectedFileArrayBuffer);
                     } catch (e) {
-                        throw new Error("Cannot load PDF. Is it already password protected? Use the 'Unlock' tab.");
+                        throw new Error("Cannot load PDF. Is it already encrypted? Use 'Unlock' tab.");
                     }
 
-                    // Encrypt
                     const password = passwordInput.value;
-                    pdfDoc.encrypt({
+
+                    // FIX IS HERE: Encyption is done inside the save() method
+                    const pdfBytes = await pdfDoc.save({
                         userPassword: password,
-                        ownerPassword: password,
-                        permissions: {
-                            printing: 'highResolution',
-                            modifying: false,
-                            copying: false
-                        }
+                        ownerPassword: password
                     });
 
-                    // Save & Download
-                    const pdfBytes = await pdfDoc.save();
                     downloadFile(pdfBytes, `locked_${selectedFileName}`);
                     showSuccess("PDF Locked Successfully!");
 
                 } else {
                     // --- UNLOCK LOGIC ---
                     
-                    // Load the PDF with the provided password
                     let pdfDoc;
                     try {
+                        // Load PDF with the password provided
                         pdfDoc = await PDFDocument.load(selectedFileArrayBuffer, { 
                             password: passwordInput.value 
                         });
                     } catch (e) {
-                        // pdf-lib throws generic error if password is wrong
                         throw new Error("Incorrect Password or file is not encrypted.");
                     }
 
-                    // To unlock, we simply save the document again without passing encrypt options
+                    // Save PDF without passing a password (removes encryption)
                     const pdfBytes = await pdfDoc.save();
+                    
                     downloadFile(pdfBytes, `unlocked_${selectedFileName}`);
                     showSuccess("PDF Unlocked Successfully!");
                 }
