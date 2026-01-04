@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro PDF Signer Suite</title>
+    <title>Pro PDF Signer - Final Fixed</title>
     
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -168,38 +168,30 @@
             </div>
             
             <div class="p-4">
-                <!-- Tabs -->
                 <div class="flex bg-gray-100 p-1 rounded-lg mb-4">
                     <button onclick="switchTab('draw')" id="tab-draw" class="flex-1 py-1 text-sm font-medium rounded-md shadow bg-white text-blue-600 transition-all">Draw</button>
                     <button onclick="switchTab('type')" id="tab-type" class="flex-1 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">Type</button>
                     <button onclick="switchTab('upload')" id="tab-upload" class="flex-1 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">Upload</button>
                 </div>
 
-                <!-- Draw Area -->
                 <div id="area-draw" class="border rounded-lg bg-white relative">
                     <canvas id="pad-canvas" class="w-full h-40 touch-none"></canvas>
                     <p class="absolute bottom-2 left-0 right-0 text-center text-xs text-gray-300 pointer-events-none">Sign Here</p>
                 </div>
 
-                <!-- Type Area -->
                 <div id="area-type" class="hidden">
                     <input type="text" id="type-input" placeholder="Type your name" class="w-full border rounded-lg p-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
                     <div id="type-preview" class="h-28 flex items-center justify-center text-4xl text-gray-800" style="font-family: 'Brush Script MT', cursive;"></div>
                 </div>
 
-                <!-- Upload Area (New) -->
                 <div id="area-upload" class="hidden">
                     <div class="h-40 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition relative flex flex-col items-center justify-center overflow-hidden">
                         <input type="file" id="sig-image-upload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        
-                        <!-- Placeholder -->
                         <div id="upload-placeholder" class="text-center">
                             <i class="ph ph-upload-simple text-3xl text-gray-400 mb-2"></i>
                             <p class="text-sm text-gray-500 font-medium">Click to Upload Image</p>
-                            <p class="text-xs text-gray-400 mt-1">PNG or JPG</p>
+                            <p class="text-xs text-gray-400 mt-1">PNG, JPG, WebP</p>
                         </div>
-
-                        <!-- Preview -->
                         <img id="upload-preview" src="" class="hidden w-full h-full object-contain p-2 z-0">
                     </div>
                 </div>
@@ -216,12 +208,10 @@
     </div>
 
 <script>
-    // --- State ---
     const state = { pdfDoc: null, pageNum: 1, scale: 1.5, pdfBytes: null };
     let signaturePad;
     let activeTab = 'draw';
 
-    // --- DOM Elements ---
     const els = {
         upload: document.getElementById('pdf-upload'),
         container: document.getElementById('canvas-container'),
@@ -240,7 +230,6 @@
         uploadPlace: document.getElementById('upload-placeholder')
     };
 
-    // --- Helper: Resize Canvas for Retina Displays ---
     function resizeCanvas(canvas) {
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = canvas.offsetWidth * ratio;
@@ -248,7 +237,7 @@
         canvas.getContext("2d").scale(ratio, ratio);
     }
 
-    // --- 1. PDF Loading ---
+    // --- PDF Logic ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     els.upload.addEventListener('change', async (e) => {
@@ -264,7 +253,7 @@
                 state.pageNum = 1;
                 renderUI();
                 await renderPage();
-            } catch (err) { alert("Error loading PDF"); }
+            } catch (err) { alert("Error loading PDF: " + err.message); }
             els.loader.classList.add('hidden');
         };
         reader.readAsArrayBuffer(file);
@@ -284,16 +273,14 @@
         els.canvas.height = viewport.height; els.canvas.width = viewport.width;
         els.container.style.width = viewport.width + "px"; els.container.style.height = viewport.height + "px";
         await page.render({ canvasContext: els.ctx, viewport }).promise;
-        
         els.pageInfo.innerText = `Page ${state.pageNum} / ${state.pdfDoc.numPages}`;
         
-        // Toggle Element Visibility based on page
         document.querySelectorAll('.drag-element').forEach(el => {
             el.style.display = (parseInt(el.dataset.page) === state.pageNum) ? 'block' : 'none';
         });
     }
 
-    // --- 2. Interact JS (Drag & Resize) ---
+    // --- Interact JS ---
     interact('.drag-element')
         .draggable({
             listeners: { move: (event) => {
@@ -332,13 +319,11 @@
         }
     });
 
-    // --- 3. DOM Element Creation ---
     function addElementToDOM(type, content) {
         const div = document.createElement('div');
         div.className = 'drag-element';
         div.dataset.page = state.pageNum;
         
-        // Initial Position (Centered-ish)
         const startX = 50, startY = 50;
         div.style.transform = `translate(${startX}px, ${startY}px)`;
         div.setAttribute('data-x', startX); div.setAttribute('data-y', startY);
@@ -347,6 +332,8 @@
             div.style.width = '200px'; div.style.height = '100px';
             const img = document.createElement('img');
             img.src = content;
+            // IMPORTANT: Cross-origin needs to be anonymous for canvas operations later
+            img.crossOrigin = "anonymous";
             img.className = 'w-full h-full object-contain pointer-events-none';
             div.appendChild(img);
         } else {
@@ -359,18 +346,16 @@
             input.onblur = () => div.classList.add('drag-element');
         }
 
-        // Controls
         const handle = document.createElement('div'); handle.className = 'resize-handle handle-se';
         const delBtn = document.createElement('div'); delBtn.className = 'delete-btn';
         delBtn.innerHTML = '&times;'; delBtn.onclick = (e) => { e.stopPropagation(); div.remove(); };
         div.appendChild(handle); div.appendChild(delBtn);
         div.onmousedown = () => activateElement(div);
-        
         els.container.appendChild(div);
         activateElement(div);
     }
 
-    // --- 4. Modal Logic (Draw, Type, Upload) ---
+    // --- Modal Logic ---
     function openSignatureModal() {
         els.modal.classList.remove('hidden');
         setTimeout(() => { els.modal.classList.remove('opacity-0'); els.modalContent.classList.remove('scale-95'); }, 10);
@@ -380,49 +365,30 @@
     }
 
     window.closeModal = () => {
-        els.modalContent.classList.add('scale-95');
-        els.modal.classList.add('opacity-0');
+        els.modalContent.classList.add('scale-95'); els.modal.classList.add('opacity-0');
         setTimeout(() => els.modal.classList.add('hidden'), 200);
     }
 
     window.switchTab = (tab) => {
         activeTab = tab;
-        const tabs = ['draw', 'type', 'upload'];
-        tabs.forEach(t => {
-            const btn = document.getElementById(`tab-${t}`);
-            const area = document.getElementById(`area-${t}`);
-            if(t === tab) {
-                btn.className = "flex-1 py-1 text-sm font-medium rounded-md shadow bg-white text-blue-600 transition-all";
-                area.classList.remove('hidden');
-            } else {
-                btn.className = "flex-1 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all";
-                area.classList.add('hidden');
-            }
+        ['draw', 'type', 'upload'].forEach(t => {
+            document.getElementById(`tab-${t}`).className = t === tab ? "flex-1 py-1 text-sm font-medium rounded-md shadow bg-white text-blue-600 transition-all" : "flex-1 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all";
+            document.getElementById(`area-${t}`).classList.toggle('hidden', t !== tab);
         });
     }
 
     window.clearPad = () => {
         if(activeTab === 'draw') signaturePad.clear();
         if(activeTab === 'type') { document.getElementById('type-input').value = ''; document.getElementById('type-preview').innerText = ''; }
-        if(activeTab === 'upload') { 
-            els.sigUpload.value = ''; 
-            els.uploadPrev.classList.add('hidden'); 
-            els.uploadPlace.classList.remove('hidden'); 
-        }
+        if(activeTab === 'upload') { els.sigUpload.value = ''; els.uploadPrev.classList.add('hidden'); els.uploadPlace.classList.remove('hidden'); }
     }
-
     document.getElementById('type-input').addEventListener('input', (e) => document.getElementById('type-preview').innerText = e.target.value);
 
-    // Handle Upload Preview
     els.sigUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if(!file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
-            els.uploadPrev.src = ev.target.result;
-            els.uploadPrev.classList.remove('hidden');
-            els.uploadPlace.classList.add('hidden');
-        }
+        reader.onload = (ev) => { els.uploadPrev.src = ev.target.result; els.uploadPrev.classList.remove('hidden'); els.uploadPlace.classList.add('hidden'); }
         reader.readAsDataURL(file);
     });
 
@@ -447,7 +413,6 @@
         closeModal();
     }
 
-    // --- 5. Tool Actions ---
     document.getElementById('stamp-upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -461,11 +426,28 @@
     window.addTextTool = () => addElementToDOM('text', 'Type Here');
     window.addDateTool = () => addElementToDOM('text', new Date().toLocaleDateString());
 
-    // --- 6. Navigation ---
     document.getElementById('prev-page').onclick = () => { if (state.pageNum > 1) { state.pageNum--; renderPage(); } };
     document.getElementById('next-page').onclick = () => { if (state.pageNum < state.pdfDoc.numPages) { state.pageNum++; renderPage(); } };
 
-    // --- 7. Download ---
+    // --- HELPER: CONVERT ANY IMAGE TO PNG (FIXES SAVE ERROR) ---
+    async function normalizeImageToPNG(imgSrc) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = reject;
+            img.src = imgSrc;
+        });
+    }
+
+    // --- SAVE LOGIC (FIXED) ---
     document.getElementById('download-btn').onclick = async () => {
         els.loader.classList.remove('hidden');
         try {
@@ -491,19 +473,29 @@
                 const finalH = rect.height * scaleY;
 
                 if (el.querySelector('img')) {
-                    const imgData = el.querySelector('img').src;
-                    const embedImg = imgData.startsWith('data:image/png') ? await pdfDoc.embedPng(imgData) : await pdfDoc.embedJpg(imgData);
+                    // Normalize Image to PNG to avoid format errors
+                    const rawSrc = el.querySelector('img').src;
+                    const safePng = await normalizeImageToPNG(rawSrc);
+                    const embedImg = await pdfDoc.embedPng(safePng);
                     pdfPage.drawImage(embedImg, { x: finalX, y: finalY, width: finalW, height: finalH });
                 } else {
-                    const text = el.querySelector('div[contenteditable]').innerText;
-                    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-                    pdfPage.drawText(text, { x: finalX, y: finalY + (finalH*0.2), size: finalH * 0.7, font, color: rgb(0,0,0) });
+                    try {
+                        const text = el.querySelector('div[contenteditable]').innerText;
+                        const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                        pdfPage.drawText(text, { x: finalX, y: finalY + (finalH*0.2), size: finalH * 0.7, font, color: rgb(0,0,0) });
+                    } catch (fontErr) {
+                        console.warn("Font Error:", fontErr);
+                        alert("Warning: Some text contains unsupported characters (e.g. Emoji/Hindi) and was skipped.");
+                    }
                 }
             }
 
             const blob = new Blob([await pdfDoc.save()], { type: 'application/pdf' });
             const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'signed_document.pdf'; link.click();
-        } catch(e) { console.error(e); alert("Save Error"); }
+        } catch(e) { 
+            console.error("Save Error Detail:", e); 
+            alert("Save Error: Check console for details. Ensure uploaded images are valid."); 
+        }
         els.loader.classList.add('hidden');
     };
 </script>
