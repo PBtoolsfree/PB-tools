@@ -406,7 +406,6 @@
         if (type === 'stamp') {
             textInput.placeholder = "Company Name";
             uploadBtn.textContent = "Upload Stamp";
-            // Set font to bold simple font for preview
         } else if (type === 'initials') {
             textInput.placeholder = "Initials";
             uploadBtn.textContent = "Upload Initials";
@@ -415,7 +414,6 @@
             uploadBtn.textContent = "Upload Signature";
         }
         
-        // Re-trigger preview to update font style
         previewTypeSignature();
     }
 
@@ -440,15 +438,12 @@
         c.width = 400; c.height = 100;
 
         if (currentCategory === 'stamp') {
-             // Stamp Style
              cx.font = "bold 40px 'Courier New', monospace";
              cx.fillStyle = "#000"; cx.textBaseline = "middle"; 
-             // Draw box
              cx.strokeStyle = "#000"; cx.lineWidth = 4;
              cx.strokeRect(10, 10, 380, 80);
              cx.fillText(val, 30, 50);
         } else {
-             // Cursive Style
              cx.font = "40px 'Brush Script MT', cursive"; 
              cx.fillStyle = "#000"; cx.textBaseline = "middle"; 
              cx.fillText(val, 20, 50);
@@ -560,26 +555,64 @@
         function closeDrag() { document.onmouseup = null; document.onmousemove = null; document.ontouchend = null; document.ontouchmove = null; }
     }
 
+    // --- FIX: UPDATED DOWNLOAD FUNCTION ---
     async function downloadPDF() {
         if(!activeSignature) return alert("Place item first");
+        
         const btn = document.getElementById('download-btn');
-        btn.innerHTML = "Processing..."; btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; 
+        btn.disabled = true;
+
         try {
-            const { PDFDocument } = PDFLib; const pdf = await PDFDocument.load(pdfBytes);
+            const { PDFDocument } = PDFLib; 
+            const pdf = await PDFDocument.load(pdfBytes);
             const page = pdf.getPage(pageNum - 1);
+            
+            // 1. Get Image Source
             const imgEl = activeSignature.querySelector('img');
-            const png = await pdf.embedPng(imgEl.src);
+            const imageSrc = imgEl.src;
+
+            // 2. Fetch data (Fix for "Error" alert)
+            const imageBytes = await fetch(imageSrc).then((res) => res.arrayBuffer());
+
+            // 3. Embed based on type (PNG or JPG)
+            let embeddedImage;
+            if (imageSrc.startsWith('data:image/jpeg') || imageSrc.startsWith('data:image/jpg')) {
+                embeddedImage = await pdf.embedJpg(imageBytes);
+            } else {
+                // Default to PNG (Canvas usually produces PNG)
+                embeddedImage = await pdf.embedPng(imageBytes);
+            }
+
+            // 4. Calculate Coordinates
             const { width: pW, height: pH } = page.getSize();
             const rect = activeSignature.getBoundingClientRect();
             const box = document.getElementById('canvas-box').getBoundingClientRect();
-            const scaleX = pW / canvas.width; const scaleY = pH / canvas.height;
+            
+            const scaleX = pW / canvas.width; 
+            const scaleY = pH / canvas.height;
+            
             const x = (rect.left - box.left) * scaleX;
+            // PDF coordinates start from bottom-left
             const y = pH - ((rect.top - box.top) * scaleY) - (activeSignature.offsetHeight * scaleY);
-            page.drawImage(png, { x, y, width: activeSignature.offsetWidth * scaleX, height: activeSignature.offsetHeight * scaleY });
+            
+            page.drawImage(embeddedImage, { 
+                x, 
+                y, 
+                width: activeSignature.offsetWidth * scaleX, 
+                height: activeSignature.offsetHeight * scaleY 
+            });
+
             const saved = await pdf.save();
             saveAs(new Blob([saved], { type: 'application/pdf' }), 'signed_doc.pdf');
-        } catch(e) { console.error(e); alert("Error"); }
-        finally { btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF'; btn.disabled = false; }
+        
+        } catch(e) { 
+            console.error(e); 
+            alert("Error saving PDF: " + e.message); 
+        } finally { 
+            btn.innerHTML = '<i class="fa-solid fa-download"></i> Download PDF'; 
+            btn.disabled = false; 
+        }
     }
 </script>
 
